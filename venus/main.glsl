@@ -1,16 +1,14 @@
 // Venus Sulfuric Wasteland Shader
 // Heavy atmosphere, acid ocean, thick clouds and smog
-// 2024 - Inspired by Venus's hellish surface conditions
+// https://github.com/SachinSSh
 
-#define DRAG_MULT 0.05 // very low - viscous acid
-#define ACID_DEPTH 0.25 // shallow, dense liquid
+#define DRAG_MULT 0.05 
+#define ACID_DEPTH 0.25 
 #define CAMERA_HEIGHT 1.2
 #define ITERATIONS_RAYMARCH 10
 #define ITERATIONS_NORMAL 16
 
 #define NormalizedMouse (iMouse.xy / iResolution.xy)
-
-// ============ NOISE FUNCTIONS ============
 
 float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -74,7 +72,6 @@ float fbm3D(vec3 p) {
     return value;
 }
 
-// Turbulent noise for smoke
 float turbulence(vec3 p) {
     float value = 0.0;
     float amp = 0.5;
@@ -86,21 +83,16 @@ float turbulence(vec3 p) {
     return value;
 }
 
-// ============ ACID WAVE FUNCTIONS ============
-
-// Very slow, viscous acid waves
 vec2 acidwavedx(vec2 position, vec2 direction, float frequency, float timeshift) {
     float x = dot(direction, position) * frequency + timeshift;
-    float wave = exp(sin(x) - 1.0) * 0.15; // very reduced for viscous acid
+    float wave = exp(sin(x) - 1.0) * 0.15; 
     float dx = wave * cos(x) * 0.15;
     return vec2(wave, -dx);
 }
 
-// Subtle acid ripples - small disturbances on viscous surface
 float getripples(vec2 position, float time) {
     float ripple = 0.0;
     
-    // Very fine, subtle ripples
     for(int i = 0; i < 5; i++) {
         float freq = 8.0 + float(i) * 5.0;
         float amp = 0.003 / (float(i) + 1.0);
@@ -108,25 +100,21 @@ float getripples(vec2 position, float time) {
         ripple += sin(position.x * freq + time * 0.02 + phase) * amp;
         ripple += sin(position.y * freq * 0.8 - time * 0.015 + phase * 0.5) * amp;
     }
-    
-    // Add some random bubbling disturbances
     float bubble = noise(position * 3.0 + time * 0.1);
     bubble = pow(bubble, 3.0) * 0.01;
     
     return ripple + bubble;
 }
 
-// Main acid wave function - few slow waves, more ripples
 float getacidwaves(vec2 position, int iterations) {
     float wavePhaseShift = length(position) * 0.02;
     float iter = 0.0;
-    float frequency = 0.15; // very low base frequency
-    float timeMultiplier = 0.008; // extremely slow
+    float frequency = 0.15; 
+    float timeMultiplier = 0.008;
     float weight = 1.0;
     float sumOfValues = 0.0;
     float sumOfWeights = 0.0;
     
-    // Only 3-4 main wave octaves for "fewer waves"
     int actualIter = min(iterations, 4);
     
     for(int i = 0; i < actualIter; i++) {
@@ -135,7 +123,7 @@ float getacidwaves(vec2 position, int iterations) {
         position += p * res.y * weight * DRAG_MULT;
         sumOfValues += res.x * weight;
         sumOfWeights += weight;
-        weight = mix(weight, 0.0, 0.4); // faster falloff
+        weight = mix(weight, 0.0, 0.4);
         frequency *= 1.8;
         timeMultiplier *= 1.02;
         iter += 1232.399963;
@@ -143,7 +131,6 @@ float getacidwaves(vec2 position, int iterations) {
     
     float mainWaves = sumOfValues / sumOfWeights;
     
-    // Add more ripples than waves
     float ripples = getripples(position, iTime) * 2.0;
     
     return mainWaves * 0.6 + ripples;
@@ -174,13 +161,9 @@ vec3 acidnormal(vec2 pos, float e, float depth) {
     );
 }
 
-// ============ ATMOSPHERE & CLOUDS ============
-
-// Volumetric cloud density
 float cloudDensity(vec3 p) {
     float density = 0.0;
     
-    // Multiple cloud layers
     vec3 p1 = p * 0.3;
     p1.x += iTime * 0.002;
     density += fbm3D(p1) * 0.6;
@@ -196,7 +179,6 @@ float cloudDensity(vec3 p) {
     return density;
 }
 
-// Thick sulfuric smog
 float smogDensity(vec3 p, float horizonFactor) {
     vec3 smokePos = p;
     smokePos.y *= 0.3;
@@ -210,57 +192,45 @@ float smogDensity(vec3 p, float horizonFactor) {
     return smoke;
 }
 
-// Rising vapor/smoke from acid
 float risingSmoke(vec3 raydir, vec2 uv) {
     vec3 smokePos = vec3(uv * 2.0, iTime * 0.02);
     
-    // Upward flowing smoke
     smokePos.y -= iTime * 0.03;
     smokePos.x += sin(smokePos.y * 2.0 + iTime * 0.1) * 0.3;
     
     float smoke = turbulence(smokePos);
     smoke = pow(smoke, 1.5);
     
-    // More smoke near horizon (looking across surface)
     float horizonBoost = pow(1.0 - abs(raydir.y), 4.0);
     smoke *= horizonBoost;
     
     return smoke * 0.4;
 }
 
-// Main Venus atmosphere
 vec3 venusAtmosphere(vec3 raydir, vec3 origin) {
-    // Venus color palette - sickly yellows and browns
     vec3 sulfurYellow = vec3(0.65, 0.50, 0.12);
     vec3 darkOrange = vec3(0.40, 0.22, 0.06);
     vec3 brownSmog = vec3(0.25, 0.15, 0.05);
     vec3 paleYellow = vec3(0.80, 0.65, 0.30);
     vec3 sicklyGreen = vec3(0.45, 0.42, 0.15);
     
-    // Horizon calculations
     float horizonFactor = pow(1.0 - abs(raydir.y), 4.0);
     float horizonFactor2 = pow(1.0 - abs(raydir.y), 2.0);
     
-    // Height in sky
     float heightGrad = raydir.y * 0.5 + 0.5;
     
-    // Cloud UV coordinates - parallax based on height
     vec2 cloudUV = raydir.xz / (abs(raydir.y) + 0.02);
     
-    // HEAVY CLOUD LAYERS
     float cloud1 = fbm(cloudUV * 0.15 + iTime * 0.001);
     float cloud2 = fbm(cloudUV * 0.3 - iTime * 0.0015);
     float cloud3 = fbm(cloudUV * 0.6 + vec2(iTime * 0.002, -iTime * 0.001));
     float cloud4 = fbm(cloudUV * 1.2 - iTime * 0.001);
     
-    // Combine cloud layers
     float cloudDens = cloud1 * 0.4 + cloud2 * 0.3 + cloud3 * 0.2 + cloud4 * 0.1;
     
-    // Thick billowing clouds
     float thickClouds = smoothstep(0.25, 0.7, cloudDens);
     float mediumClouds = smoothstep(0.15, 0.5, cloudDens);
     
-    // SMOG AND HAZE
     vec2 smogUV = cloudUV * 0.1;
     float smog1 = fbm(smogUV + iTime * 0.0005);
     float smog2 = fbm(smogUV * 2.0 - iTime * 0.0003);
@@ -268,7 +238,6 @@ vec3 venusAtmosphere(vec3 raydir, vec3 origin) {
     smogLayer = pow(smogLayer, 0.7);
     smogLayer *= horizonFactor * 1.5 + 0.3; // Always some smog, more at horizon
     
-    // SMOKE WISPS rising
     vec3 smokePos = vec3(cloudUV * 0.5, iTime * 0.01);
     float smoke = turbulence(smokePos * 0.8);
     smoke *= horizonFactor2 * 0.6;
