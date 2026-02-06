@@ -1,6 +1,6 @@
 // Venus Sulfuric Wasteland Shader - ENHANCED
 // Heavy clouds, acid ocean with ripples, thick smoke everywhere
-// 2024
+
 
 #define DRAG_MULT 0.05
 #define ACID_DEPTH 0.25
@@ -10,7 +10,7 @@
 
 #define NormalizedMouse (iMouse.xy / iResolution.xy)
 
-// ============ NOISE FUNCTIONS ============
+
 
 float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -86,9 +86,6 @@ float turbulence(vec3 p) {
     return value;
 }
 
-// ============ ENHANCED CLOUD FUNCTIONS ============
-
-// Billowing cloud shape
 float cloudShape(vec2 uv, float time) {
     float cloud = 0.0;
     
@@ -101,25 +98,22 @@ float cloudShape(vec2 uv, float time) {
     return cloud / 1.875;
 }
 
-// Volumetric cloud layer - ENHANCED VISIBILITY
 float volumetricCloud(vec3 rayDir, float layerHeight, float thickness, float time) {
     if(rayDir.y <= 0.001) return 0.0;
     
-    // Ray march through cloud layer
+ 
     float t = (layerHeight - CAMERA_HEIGHT) / rayDir.y;
     if(t < 0.0) return 0.0;
     
     vec3 cloudPos = vec3(0.0, CAMERA_HEIGHT, 0.0) + rayDir * t;
     vec2 cloudUV = cloudPos.xz * 0.02;
     
-    // Multiple cloud octaves for billowing effect
     float density = 0.0;
     density += fbm(cloudUV * 1.0 + time * 0.003) * 0.4;
     density += fbm(cloudUV * 2.0 - time * 0.002) * 0.3;
     density += fbm(cloudUV * 4.0 + time * 0.001) * 0.2;
     density += noise(cloudUV * 8.0) * 0.1;
     
-    // Shape the clouds - make them more defined
     density = smoothstep(0.2, 0.7, density);
     density *= thickness;
     
@@ -130,11 +124,9 @@ float volumetricCloud(vec3 rayDir, float layerHeight, float thickness, float tim
     return density;
 }
 
-// MASSIVE CLOUD BANK - very visible thick clouds
 float massiveCloudBank(vec3 rayDir, float time) {
     float totalCloud = 0.0;
     
-    // Multiple cloud layers at different heights
     for(int i = 0; i < 5; i++) {
         float height = 8.0 + float(i) * 4.0;
         float thickness = 1.2 - float(i) * 0.15;
@@ -146,13 +138,12 @@ float massiveCloudBank(vec3 rayDir, float time) {
     return totalCloud;
 }
 
-// Horizontal cloud bands (like Venus has)
 float cloudBands(vec3 rayDir, float time) {
     float bands = 0.0;
     
     float y = rayDir.y * 0.5 + 0.5; // 0 to 1
     
-    // Create horizontal striations
+
     for(int i = 0; i < 4; i++) {
         float bandPos = 0.2 + float(i) * 0.2;
         float bandWidth = 0.08 + fbm(vec2(rayDir.x * 2.0 + time * 0.01, float(i))) * 0.05;
@@ -170,13 +161,10 @@ float cloudBands(vec3 rayDir, float time) {
     return bands;
 }
 
-// ============ ENHANCED SMOKE FUNCTIONS ============
-
-// Thick rising smoke columns
 float smokeColumns(vec3 rayDir, vec2 uv, float time) {
     float smoke = 0.0;
     
-    // Multiple smoke column sources
+
     for(int i = 0; i < 6; i++) {
         vec2 columnPos = vec2(
             sin(float(i) * 1.7 + time * 0.01) * 2.0,
@@ -186,14 +174,14 @@ float smokeColumns(vec3 rayDir, vec2 uv, float time) {
         vec2 offset = uv * 3.0 - columnPos;
         float dist = length(offset);
         
-        // Column shape - rises and spreads
+
         float column = exp(-dist * 1.5);
         
         // Turbulent motion
         vec3 smokePos = vec3(offset, time * 0.05 + float(i));
         column *= turbulence(smokePos * 2.0) * 1.5;
         
-        // Rising motion
+
         float rise = sin(time * 0.1 + float(i) + dist * 2.0) * 0.5 + 0.5;
         column *= rise;
         
@@ -203,14 +191,13 @@ float smokeColumns(vec3 rayDir, vec2 uv, float time) {
     return smoke;
 }
 
-// Ground hugging smog
+
 float groundSmog(vec3 rayDir, float time) {
     float smog = 0.0;
     
-    // More smog looking down/horizontal
+
     float horizonFactor = pow(1.0 - abs(rayDir.y), 2.0);
     
-    // Layered smog
     vec2 smogUV = rayDir.xz / (abs(rayDir.y) + 0.1);
     
     smog += fbm(smogUV * 0.3 + time * 0.002) * 0.5;
@@ -222,7 +209,6 @@ float groundSmog(vec3 rayDir, float time) {
     return smog;
 }
 
-// Swirling atmospheric haze
 float atmosphericHaze(vec3 rayDir, float time) {
     vec3 hazePos = rayDir * 5.0;
     hazePos.x += time * 0.02;
@@ -231,7 +217,6 @@ float atmosphericHaze(vec3 rayDir, float time) {
     float haze = fbm3D(hazePos * 0.5);
     haze += turbulence(hazePos * 0.3) * 0.5;
     
-    // Swirl pattern
     float angle = atan(rayDir.z, rayDir.x);
     float swirl = sin(angle * 3.0 + time * 0.05 + haze * 5.0) * 0.5 + 0.5;
     haze *= 0.7 + swirl * 0.3;
@@ -239,7 +224,6 @@ float atmosphericHaze(vec3 rayDir, float time) {
     return haze * 0.6;
 }
 
-// ============ ACID WAVE FUNCTIONS ============
 
 vec2 acidwavedx(vec2 position, vec2 direction, float frequency, float timeshift) {
     float x = dot(direction, position) * frequency + timeshift;
@@ -248,11 +232,9 @@ vec2 acidwavedx(vec2 position, vec2 direction, float frequency, float timeshift)
     return vec2(wave, -dx);
 }
 
-// ENHANCED RIPPLES - more visible
 float getripples(vec2 position, float time) {
     float ripple = 0.0;
     
-    // Concentric ripples from multiple sources
     for(int i = 0; i < 8; i++) {
         vec2 center = vec2(
             sin(float(i) * 3.7 + time * 0.02) * 5.0,
@@ -267,7 +249,6 @@ float getripples(vec2 position, float time) {
         ripple += wave;
     }
     
-    // Fine surface ripples
     for(int i = 0; i < 6; i++) {
         float freq = 6.0 + float(i) * 4.0;
         float amp = 0.008 / (float(i) + 1.0);
@@ -280,7 +261,6 @@ float getripples(vec2 position, float time) {
         ripple += sin((position.x + position.y) * freq * 0.5 + time * 0.02) * amp * 0.5;
     }
     
-    // Random bubbling ripples
     float bubble1 = noise(position * 4.0 + time * 0.2);
     float bubble2 = noise(position * 6.0 - time * 0.15);
     ripple += pow(bubble1, 4.0) * 0.02;
@@ -289,7 +269,6 @@ float getripples(vec2 position, float time) {
     return ripple;
 }
 
-// Visible wave patterns
 float getVisibleWaves(vec2 position, float time) {
     float waves = 0.0;
     
@@ -330,10 +309,8 @@ float getacidwaves(vec2 position, int iterations) {
     
     float mainWaves = sumOfValues / sumOfWeights;
     
-    // ADD visible waves
     float visibleWaves = getVisibleWaves(position, iTime);
     
-    // ADD enhanced ripples
     float ripples = getripples(position, iTime) * 3.0;
     
     return mainWaves * 0.5 + visibleWaves + ripples;
@@ -364,10 +341,8 @@ vec3 acidnormal(vec2 pos, float e, float depth) {
     );
 }
 
-// ============ MAIN ATMOSPHERE FUNCTION ============
 
 vec3 venusAtmosphere(vec3 raydir, vec3 origin) {
-    // Venus color palette
     vec3 sulfurYellow = vec3(0.65, 0.50, 0.12);
     vec3 darkOrange = vec3(0.40, 0.22, 0.06);
     vec3 brownSmog = vec3(0.25, 0.15, 0.05);
@@ -378,38 +353,29 @@ vec3 venusAtmosphere(vec3 raydir, vec3 origin) {
     
     float time = iTime;
     
-    // Horizon calculations
     float horizonFactor = pow(1.0 - abs(raydir.y), 4.0);
     float heightGrad = raydir.y * 0.5 + 0.5;
     
     vec2 cloudUV = raydir.xz / (abs(raydir.y) + 0.05);
     vec2 uv = raydir.xz;
+
     
-    // ============ MASSIVE CLOUD LAYERS ============
-    
-    // Layer 1: Huge billowing clouds
     float bigCloud1 = cloudShape(cloudUV * 0.3, time * 0.5);
     bigCloud1 = smoothstep(0.3, 0.8, bigCloud1);
     
-    // Layer 2: Medium cloud formations  
     float bigCloud2 = cloudShape(cloudUV * 0.5 + 10.0, time * 0.4);
     bigCloud2 = smoothstep(0.35, 0.75, bigCloud2);
     
-    // Layer 3: Smaller cloud details
     float detailCloud = fbm(cloudUV * 2.0 + time * 0.01);
     detailCloud = smoothstep(0.4, 0.7, detailCloud);
     
-    // Layer 4: Wispy high clouds
     float wispyCloud = fbm(cloudUV * 4.0 - time * 0.005);
     wispyCloud = pow(wispyCloud, 1.5) * 0.8;
     
-    // Volumetric cloud bank
     float volumeClouds = massiveCloudBank(raydir, time);
     
-    // Horizontal bands
     float bands = cloudBands(raydir, time);
     
-    // Combine all cloud layers
     float totalClouds = 0.0;
     totalClouds += bigCloud1 * 0.9;
     totalClouds += bigCloud2 * 0.7;
@@ -419,7 +385,6 @@ vec3 venusAtmosphere(vec3 raydir, vec3 origin) {
     totalClouds += bands * 0.5;
     totalClouds = min(totalClouds, 1.5);
     
-    // ============ SMOKE AND SMOG ============
     
     // Rising smoke columns
     float smokeCol = smokeColumns(raydir, uv, time);
@@ -438,8 +403,7 @@ vec3 venusAtmosphere(vec3 raydir, vec3 origin) {
     // Total smoke/smog
     float totalSmoke = smokeCol + smog * 0.8 + haze * 0.5 + turbSmoke * 0.4;
     
-    // ============ COLOR COMPOSITION ============
-    
+
     // Base atmosphere color
     vec3 baseColor = mix(brownSmog, darkOrange, heightGrad * 0.3);
     baseColor *= 0.5;
@@ -460,7 +424,6 @@ vec3 venusAtmosphere(vec3 raydir, vec3 origin) {
     // Horizon glow
     vec3 horizonGlow = sulfurYellow * horizonFactor * 0.3;
     
-    // ============ FINAL COMPOSITION ============
     
     vec3 atmosphere = baseColor;
     
@@ -492,7 +455,6 @@ vec3 venusAtmosphere(vec3 raydir, vec3 origin) {
     return atmosphere;
 }
 
-// ============ ACID OCEAN ============
 
 vec3 getAcidColor(vec3 N, vec3 ray, vec3 hitPos, float dist, vec3 origin) {
     vec3 deepAcid = vec3(0.08, 0.06, 0.01);
@@ -596,7 +558,6 @@ vec3 surfaceSmoke(vec3 ray, vec3 hitPos, float dist) {
     return smokeCol * smoke * 0.6;
 }
 
-// ============ UTILITY FUNCTIONS ============
 
 mat3 createRotationMatrixAxisAngle(vec3 axis, float angle) {
     float s = sin(angle);
